@@ -23,6 +23,12 @@ jobs:
       - name: Ensure secrets
         run: |
           if [ -z "$MAIN_TOKEN" ] || [ -z "$BOT_TOKEN" ]; then echo "Missing MAIN_TOKEN or BOT_TOKEN" >&2; exit 1; fi
-      - name: Run script
-        working-directory: FarmWinsAlmaz-durakonline-main
-        run: python main.py
+      - name: Show repo tree (debug)
+        run: |
+          echo "PWD: $(pwd)"
+          ls -la
+          echo "Top-level dirs:"
+          find . -maxdepth 2 -type d -print
+      - name: Run script (explicit path)
+        run: |
+          if [ -f FarmWinsAlmaz-durakonline-main/main.py ]; then python FarmWinsAlmaz-durakonline-main/main.py; else echo "File not found: FarmWinsAlmaz-durakonline-main/main.py" >&2; ls -la; exit 1; fi
