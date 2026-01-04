@@ -1,0 +1,24 @@
+name: Run every 2 hours
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # каждые 2 часа
+  workflow_dispatch:
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    env:
+      MAIN_TOKEN: ${{ secrets.MAIN_TOKEN }}
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests loguru; fi
+      - name: Run script
+        run: python main.py
