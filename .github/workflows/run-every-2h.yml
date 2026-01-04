@@ -19,6 +19,10 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests loguru; fi
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; else pip install requests loguru python-dotenv; fi
+      - name: Ensure secrets
+        run: |
+          if [ -z "$MAIN_TOKEN" ] || [ -z "$BOT_TOKEN" ]; then echo "Missing MAIN_TOKEN or BOT_TOKEN" >&2; exit 1; fi
       - name: Run script
+        working-directory: FarmWinsAlmaz-durakonline-main
         run: python main.py
