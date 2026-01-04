@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: '0 */2 * * *'  # каждые 2 часа
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   run-script:
