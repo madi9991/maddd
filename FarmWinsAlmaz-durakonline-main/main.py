@@ -26,7 +26,7 @@ class Almaz:
         self.pages = [
             self.acc,
         ]
-    def start_game(self, main, bot, server_id: str, count: int = 1000, winner: str = "main"):
+    def start_game(self, main, bot, server_id: str, count: int = 1000):
         self.games += 1
         self.log("Create 1 thread", f"{server_id}")
         game = bot.game.create(100, "1", 2, 52)
@@ -59,30 +59,16 @@ class Almaz:
                     bot.game.take()
                     time.sleep(.1)
                     main.game._pass()
-
-            # force the configured winner by making the loser surrender
-            try:
-                if winner == "main":
-                    bot.game.surrender()
-                    self.log("Bot surrendered — MAIN should win this round", "GAME")
-                else:
-                    main.game.surrender()
-                    self.log("Main surrendered — BOT should win this round", "GAME")
-            except Exception as e:
-                self.log(f"Error during surrender: {e}", "ERROR")
-
-            # wait for game over on both clients before next round
-            try:
-                main._get_data("game_over")
-                bot._get_data("game_over")
-                self.log("game_over received for both clients", "GAME")
-            except Exception as e:
-                self.log(f"Error while waiting for game_over: {e}", "ERROR")
+            bot.game.surrender()
+            bot._get_data("game_over")
         main.game.leave(game.id)
         self.log("Leave", "MAIN")
         self.games -= 1
-        # Do not block here waiting for balance update — move this to caller to avoid deadlocks.
-        # If needed, caller (acc) will fetch balance after all phases complete.
+        if not self.games:
+            data = main._get_data("uu")
+            while data["k"] != "points":
+                data = main._get_data("uu")
+            self.log(f"Balance: {data.get('v')}\n", "MAIN")
 
     def start(self):
         page_type = 1
@@ -92,32 +78,7 @@ class Almaz:
         for server_id in SERVERS:
             main = durakonline.Client(MAIN_TOKEN, server_id=server_id, tag="[MAIN]", debug=DEBUG_MODE)
             bot = durakonline.Client(BOT_TOKEN, server_id=server_id, tag="[BOT]", debug=DEBUG_MODE)
-            # phase 1: let MAIN win COUNT games
-            self.log(f"Phase 1 start: MAIN will win {COUNT} games", "PHASE")
-            try:
-                self.start_game(main, bot, server_id, COUNT, winner="main")
-            except Exception as e:
-                self.log(f"Error during phase 1: {e}", "ERROR")
-
-            time.sleep(1)
-            # phase 2: let BOT win COUNT games
-            self.log(f"Phase 2 start: BOT will win {COUNT} games", "PHASE")
-            try:
-                self.start_game(main, bot, server_id, COUNT, winner="bot")
-            except Exception as e:
-                self.log(f"Error during phase 2: {e}", "ERROR")
-
-            # fetch balance once after both phases (with timeout to avoid blocking)
-            data = main._get_data("uu")
-            attempts = 0
-            while data.get("k") != "points" and attempts < 10:
-                time.sleep(0.5)
-                data = main._get_data("uu")
-                attempts += 1
-            if data.get("k") == "points":
-                self.log(f"Balance: {data.get('v')}\n", "MAIN")
-            else:
-                self.log("Balance update not received within timeout", "MAIN")
+            threading.Thread(target=self.start_game, args=(main, bot, server_id, COUNT, )).start()
 
     def log(self, message: str, tag: str = "MAIN") -> None:
         print(f">> [{tag}] [{datetime.now().strftime('%H:%M:%S')}] {message}")
