@@ -26,7 +26,7 @@ class Almaz:
         self.pages = [
             self.acc,
         ]
-    def start_game(self, main, bot, server_id: str, count: int = 1000):
+    def start_game(self, main, bot, server_id: str, count: int = 1000, winner: str = "main"):
         self.games += 1
         self.log("Create 1 thread", f"{server_id}")
         game = bot.game.create(100, "1", 2, 52)
@@ -59,7 +59,14 @@ class Almaz:
                     bot.game.take()
                     time.sleep(.1)
                     main.game._pass()
-            bot.game.surrender()
+
+            # force the configured winner by making the loser surrender
+            if winner == "main":
+                bot.game.surrender()
+            else:
+                main.game.surrender()
+            # wait for game over on both clients before next round
+            main._get_data("game_over")
             bot._get_data("game_over")
         main.game.leave(game.id)
         self.log("Leave", "MAIN")
@@ -78,7 +85,11 @@ class Almaz:
         for server_id in SERVERS:
             main = durakonline.Client(MAIN_TOKEN, server_id=server_id, tag="[MAIN]", debug=DEBUG_MODE)
             bot = durakonline.Client(BOT_TOKEN, server_id=server_id, tag="[BOT]", debug=DEBUG_MODE)
-            threading.Thread(target=self.start_game, args=(main, bot, server_id, COUNT, )).start()
+            # phase 1: let MAIN win COUNT games
+            self.start_game(main, bot, server_id, COUNT, winner="main")
+            time.sleep(1)
+            # phase 2: let BOT win COUNT games
+            self.start_game(main, bot, server_id, COUNT, winner="bot")
 
     def log(self, message: str, tag: str = "MAIN") -> None:
         print(f">> [{tag}] [{datetime.now().strftime('%H:%M:%S')}] {message}")
