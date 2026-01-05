@@ -71,11 +71,8 @@ class Almaz:
         main.game.leave(game.id)
         self.log("Leave", "MAIN")
         self.games -= 1
-        if not self.games:
-            data = main._get_data("uu")
-            while data["k"] != "points":
-                data = main._get_data("uu")
-            self.log(f"Balance: {data.get('v')}\n", "MAIN")
+        # Do not block here waiting for balance update — move this to caller to avoid deadlocks.
+        # If needed, caller (acc) will fetch balance after all phases complete.
 
     def start(self):
         page_type = 1
@@ -90,6 +87,17 @@ class Almaz:
             time.sleep(1)
             # phase 2: let BOT win COUNT games
             self.start_game(main, bot, server_id, COUNT, winner="bot")
+            # fetch balance once after both phases (with timeout to avoid blocking)
+            data = main._get_data("uu")
+            attempts = 0
+            while data.get("k") != "points" and attempts < 10:
+                time.sleep(0.5)
+                data = main._get_data("uu")
+                attempts += 1
+            if data.get("k") == "points":
+                self.log(f"Balance: {data.get('v')}\n", "MAIN")
+            else:
+                self.log("Balance update not received within timeout", "MAIN")
 
     def log(self, message: str, tag: str = "MAIN") -> None:
         print(f">> [{tag}] [{datetime.now().strftime('%H:%M:%S')}] {message}")
