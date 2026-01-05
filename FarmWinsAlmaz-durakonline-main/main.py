@@ -61,13 +61,23 @@ class Almaz:
                     main.game._pass()
 
             # force the configured winner by making the loser surrender
-            if winner == "main":
-                bot.game.surrender()
-            else:
-                main.game.surrender()
+            try:
+                if winner == "main":
+                    bot.game.surrender()
+                    self.log("Bot surrendered — MAIN should win this round", "GAME")
+                else:
+                    main.game.surrender()
+                    self.log("Main surrendered — BOT should win this round", "GAME")
+            except Exception as e:
+                self.log(f"Error during surrender: {e}", "ERROR")
+
             # wait for game over on both clients before next round
-            main._get_data("game_over")
-            bot._get_data("game_over")
+            try:
+                main._get_data("game_over")
+                bot._get_data("game_over")
+                self.log("game_over received for both clients", "GAME")
+            except Exception as e:
+                self.log(f"Error while waiting for game_over: {e}", "ERROR")
         main.game.leave(game.id)
         self.log("Leave", "MAIN")
         self.games -= 1
@@ -83,10 +93,20 @@ class Almaz:
             main = durakonline.Client(MAIN_TOKEN, server_id=server_id, tag="[MAIN]", debug=DEBUG_MODE)
             bot = durakonline.Client(BOT_TOKEN, server_id=server_id, tag="[BOT]", debug=DEBUG_MODE)
             # phase 1: let MAIN win COUNT games
-            self.start_game(main, bot, server_id, COUNT, winner="main")
+            self.log(f"Phase 1 start: MAIN will win {COUNT} games", "PHASE")
+            try:
+                self.start_game(main, bot, server_id, COUNT, winner="main")
+            except Exception as e:
+                self.log(f"Error during phase 1: {e}", "ERROR")
+
             time.sleep(1)
             # phase 2: let BOT win COUNT games
-            self.start_game(main, bot, server_id, COUNT, winner="bot")
+            self.log(f"Phase 2 start: BOT will win {COUNT} games", "PHASE")
+            try:
+                self.start_game(main, bot, server_id, COUNT, winner="bot")
+            except Exception as e:
+                self.log(f"Error during phase 2: {e}", "ERROR")
+
             # fetch balance once after both phases (with timeout to avoid blocking)
             data = main._get_data("uu")
             attempts = 0
