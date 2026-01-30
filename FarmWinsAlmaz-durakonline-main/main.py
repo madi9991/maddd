@@ -26,14 +26,20 @@ class Almaz:
         self.pages = [
             self.acc,
         ]
-    def start_game(self, main, bot, server_id: str, count: int = 1000):
+    def start_game(self, main, bot, server_id: str, count: int = 1000, winner: str = "main"):
+        """
+        Play `count` games on `server_id`. `winner` should be 'main' or 'bot' and
+        determines which account will surrender to give the win.
+        """
+        if winner not in ("main", "bot"):
+            raise ValueError("winner must be 'main' or 'bot'")
         self.games += 1
         self.log("Create 1 thread", f"{server_id}")
         game = bot.game.create(100, "1", 2, 52)
         main.game.join("1", game.id)
         main._get_data("game")
         for i in range(count):
-            self.log(f"{i+1} game", f"{server_id}")
+            self.log(f"{i+1} game (winner={winner})", f"{server_id}")
             main.game.ready()
             bot.game.ready()
 
@@ -59,8 +65,14 @@ class Almaz:
                     bot.game.take()
                     time.sleep(.1)
                     main.game._pass()
-            bot.game.surrender()
+            # surrender depending on chosen winner
+            if winner == "main":
+                bot.game.surrender()
+            else:
+                main.game.surrender()
+            # wait for game over on both clients
             bot._get_data("game_over")
+            main._get_data("game_over")
         main.game.leave(game.id)
         self.log("Leave", "MAIN")
         self.games -= 1
@@ -74,11 +86,19 @@ class Almaz:
         page_type = 1
         self.pages[page_type-1]("$u")
         
+    def run_sequence(self, main, bot, server_id):
+        # First make MAIN win COUNT games, then BOT win COUNT games
+        self.log(f"Starting sequence: MAIN -> BOT ({COUNT} wins each)", server_id)
+        self.start_game(main, bot, server_id, COUNT, winner="main")
+        time.sleep(1)
+        self.start_game(main, bot, server_id, COUNT, winner="bot")
+        self.log("Sequence complete", server_id)
+
     def acc(self, token: str):
         for server_id in SERVERS:
             main = durakonline.Client(MAIN_TOKEN, server_id=server_id, tag="[MAIN]", debug=DEBUG_MODE)
             bot = durakonline.Client(BOT_TOKEN, server_id=server_id, tag="[BOT]", debug=DEBUG_MODE)
-            threading.Thread(target=self.start_game, args=(main, bot, server_id, COUNT, )).start()
+            threading.Thread(target=self.run_sequence, args=(main, bot, server_id)).start()
 
     def log(self, message: str, tag: str = "MAIN") -> None:
         print(f">> [{tag}] [{datetime.now().strftime('%H:%M:%S')}] {message}")
