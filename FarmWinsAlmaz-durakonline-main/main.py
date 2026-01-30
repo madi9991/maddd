@@ -89,9 +89,49 @@ class Almaz:
     def run_sequence(self, main, bot, server_id):
         # First make MAIN win COUNT games, then BOT win COUNT games
         self.log(f"Starting sequence: MAIN -> BOT ({COUNT} wins each)", server_id)
-        self.start_game(main, bot, server_id, COUNT, winner="main")
-        time.sleep(1)
-        self.start_game(main, bot, server_id, COUNT, winner="bot")
+        try:
+            self.start_game(main, bot, server_id, COUNT, winner="main")
+        except Exception as e:
+            self.log(f"Error during MAIN series: {e}", "ERROR")
+
+        # Reinitialize clients to avoid stale state affecting the second series
+        try:
+            self.log("Reinitializing clients before BOT series", server_id)
+            try:
+                main.close_connection()
+            except Exception:
+                pass
+            try:
+                bot.close_connection()
+            except Exception:
+                pass
+            time.sleep(1)
+            main = durakonline.Client(MAIN_TOKEN, server_id=server_id, tag="[MAIN]", debug=DEBUG_MODE)
+            bot = durakonline.Client(BOT_TOKEN, server_id=server_id, tag="[BOT]", debug=DEBUG_MODE)
+        except Exception as e:
+            self.log(f"Error reinitializing clients: {e}", "ERROR")
+
+        try:
+            self.start_game(main, bot, server_id, COUNT, winner="bot")
+        except Exception as e:
+            self.log(f"Error during BOT series: {e}", "ERROR")
+
+        # Log balances for verification
+        try:
+            data_main = main._get_data("uu")
+            while data_main["k"] != "points":
+                data_main = main._get_data("uu")
+            self.log(f"MAIN balance after both series: {data_main.get('v')}", "MAIN")
+        except Exception as e:
+            self.log(f"Couldn't read MAIN balance: {e}", "ERROR")
+        try:
+            data_bot = bot._get_data("uu")
+            while data_bot["k"] != "points":
+                data_bot = bot._get_data("uu")
+            self.log(f"BOT balance after both series: {data_bot.get('v')}", "BOT")
+        except Exception as e:
+            self.log(f"Couldn't read BOT balance: {e}", "ERROR")
+
         self.log("Sequence complete", server_id)
 
     def acc(self, token: str):
